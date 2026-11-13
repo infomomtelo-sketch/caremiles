@@ -1,0 +1,5 @@
+# CareMiles — Cloudflare Pages project.
+# Deploys are direct uploads of public/ (no build step). See README.md.
+name = "caremiles"
+pages_build_output_dir = "public"
+compatibility_date = "2026-11-13"

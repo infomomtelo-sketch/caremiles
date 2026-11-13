@@ -1,0 +1,1 @@
+{"description":"CareMiles — mileage reimbursement for multi-home care operators","name":"caremiles","private":true,"scripts":{"deploy":"echo 'Deploy via Cloudflare Pages direct upload — see README.md'"},"type":"module","version":"0.1.0"}
