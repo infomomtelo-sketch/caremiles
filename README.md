@@ -7,13 +7,18 @@ the app totals the miles at the rate in effect on each trip's date, the
 employee signs the month, a manager approves it, and payroll gets a PDF
 and a CSV. Built for operators whose staff drive between homes every day.
 
-## Status — Stage 1 (scaffold)
+## Status — Stage 3 (Setup) done
 
 - Repo, Cloudflare Pages shell, magic-link sign-in, org creation.
-- **Not yet done:** no Supabase project is connected, so sign-in and org
-  creation cannot run yet. The app shell loads and says so plainly.
-- Next stages: schema (Stage 2), Setup tab (3), Log trip (4), Report (5),
-  approval + payment (6), export (7), real-data test (8).
+- Supabase connected (project dmemzljerldzeiwqfxzp — TheJudgy's project,
+  shared; CareMiles tables live there, Judgy tables untouched). Migration
+  applied; URL + anon key in `src/supabase.js`.
+- Setup tab live: homes (add / edit / deactivate, one personal/home
+  marker), users and roles (owner sets roles; new users join with the
+  organization code), rate table (owner adds rates; past rates are
+  history and can't change).
+- **Not yet done:** Log trip (Stage 4), Report (5), approval + payment
+  (6), export (7), real-data test (8).
 
 See `docs/plan.md` for the full plan: data model, RLS approach, screens,
 file list, and open questions.
@@ -25,26 +30,27 @@ file list, and open questions.
 - No PHI, no resident data. The app stores business locations, trip
   purposes, and miles only.
 
-## Configure Supabase (needed before Stage 2)
+## Configure Supabase (done — Stage 2)
 
-1. Choose or create the Supabase project (decision still with the owner).
-2. Apply `supabase/migrations/0001_init.sql` in the SQL editor.
-3. In `src/supabase.js`, replace `YOUR_SUPABASE_URL` and
-   `YOUR_SUPABASE_ANON_KEY` with the project's URL and anon key
+1. Project chosen: dmemzljerldzeiwqfxzp (TheJudgy's project).
+2. `supabase/migrations/0001_init.sql` applied in that project's SQL
+   editor (v3 — CareMiles' profile table is `caremiles_profiles`, because
+   the Judgy project already has a `profiles` table).
+3. `src/supabase.js` carries the project's URL and anon key
    (Project Settings > API). Never paste the service-role key here.
 4. Sign in with a magic link. The first sign-in creates the organization;
    the 2026 IRS rates ($0.725 from Jan 1, $0.76 from Jul 1) seed
-   automatically.
+   automatically. Later users join with the organization code from Setup.
 
 ## Deploy
 
 Direct upload to Cloudflare Pages (no build step — the app is static
-files plus Supabase):
+files plus Supabase). The deploy wrapper builds a staging tree first
+(public files + src/*.js at the site root) because index.html loads
+`./src/app.js`:
 
 ```text
-# Create the Pages project once:
-# POST /accounts/<account>/pages/projects  {"name": "caremiles", "production_branch": "main"}
-# Then upload the public/ directory as a deployment.
+python3 ~/workspace/mileage-app/caremiles-wrangler-deploy.py
 ```
 
 ## Legal note

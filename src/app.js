@@ -1,7 +1,7 @@
-// CareMiles — app shell wiring (Stage 1).
+// CareMiles — app shell wiring (Stages 1–3).
 // Tab router (Log trip / Report / Setup) + auth view + first-run org
-// creation. The three tabs are placeholders until their stages land:
-//   Setup tab   -> Stage 3 (homes, users, rates, routes)
+// creation / joining. Setup tab logic lives in src/setup.js.
+//   Setup tab   -> Stage 3 DONE (homes, users, rates, org code)
 //   Log trip    -> Stage 4 (trip form, route auto-fill, month list)
 //   Report tab  -> Stage 5 (totals, signature, locking)
 // Approval + payment is Stage 6, export is Stage 7.
@@ -10,6 +10,7 @@
 
 import { supabase, isConfigured, currentProfile, currentOrg } from './supabase.js';
 import { getSession, signInWithEmail, signOut, onAuthChange } from './auth.js';
+import { initSetup, renderSetup } from './setup.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -46,6 +47,11 @@ function showTab(name) {
     if (panel) panel.hidden = !active;
   }
   window.location.hash = `tab=${name}`;
+  // Setup data is reloaded every time the tab is opened, so the lists
+  // are never stale. Skipped before sign-in (the app view is hidden).
+  if (name === 'setup' && views.app && !views.app.hidden) {
+    renderSetup();
+  }
 }
 
 function initTabs() {
@@ -88,12 +94,30 @@ async function createOrg(orgName, fullName, user) {
   return org;
 }
 
+// ------------------------------------------------------------ org joining
+// A new user who belongs to an existing org: they sign in with a magic
+// link, then enter the organization code the owner shared. Their profile
+// row is their own row (RLS allows a user to insert only their own row),
+// so the owner cannot create it for them — the user creates it here, and
+// the owner sets their role in Setup. Role starts as employee.
+async function joinOrg(orgCode, fullName, user) {
+  const { error } = await supabase.from('caremiles_profiles').insert({
+    id: user.id,
+    org_id: orgCode,
+    email: user.email,
+    full_name: fullName,
+    role: 'employee',
+  });
+  if (error) throw error;
+}
+
 // ------------------------------------------------------------------ boot
 async function boot() {
   initTabs();
 
   // No Supabase project yet: the shell loads, sign-in stays off, and the
-  // page says plainly what is missing. This is expected in Stage 1.
+  // page says plainly what is missing. (Stage 2 connected the project;
+  // this branch only fires if the config is ever removed again.)
   if (!isConfigured()) {
     showView('config');
     return;
@@ -125,7 +149,7 @@ async function enterApp(user) {
   }
 
   if (!profile || !org) {
-    // First run: create the org.
+    // First run: create the org, or join an existing one.
     showView('orgSetup');
     const nameInput = $('org-name');
     if (nameInput && user.email) nameInput.focus();
@@ -139,6 +163,7 @@ async function enterApp(user) {
     userLine.textContent = `${profile.full_name || profile.email} · ${profile.role}`;
   }
   showView('app');
+  renderSetup();
 }
 
 function initAuthForm() {
@@ -191,6 +216,49 @@ function initOrgForm() {
   });
 }
 
+function initJoinForm() {
+  const form = $('join-form');
+  if (!form) return;
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const orgCode = $('join-code').value.trim();
+    const fullName = $('join-name').value.trim();
+    const button = $('join-submit');
+    const notice = $('join-notice');
+    if (!orgCode || !fullName) return;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgCode)) {
+      setNotice(
+        notice,
+        'That does not look like an organization code — it should be the code the owner shared with you.',
+        true,
+      );
+      return;
+    }
+    button.disabled = true;
+    setNotice(notice, 'Joining…');
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error('You are signed out. Sign in again.');
+      await joinOrg(orgCode, fullName, user);
+      setNotice(notice, '');
+      await enterApp(user);
+    } catch (err) {
+      const notFound = /foreign key|violates|23503/i.test(err.message);
+      setNotice(
+        notice,
+        notFound
+          ? 'That organization code was not found. Check it with the owner and try again.'
+          : `Could not join: ${err.message}`,
+        true,
+      );
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
 function initSignOut() {
   const button = $('sign-out');
   if (!button) return;
@@ -202,7 +270,9 @@ function initSignOut() {
 
 initAuthForm();
 initOrgForm();
+initJoinForm();
 initSignOut();
+initSetup();
 onAuthChange((session) => {
   if (session) enterApp(session.user);
   else showView('auth');
