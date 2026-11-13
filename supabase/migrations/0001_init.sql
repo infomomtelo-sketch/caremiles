@@ -1,7 +1,9 @@
 -- CareMiles — 0001_init
--- DRAFT MIGRATION. DO NOT APPLY YET.
--- No Supabase project has been chosen for CareMiles (Stage 1). Apply this
--- only after the project is chosen, in Stage 2.
+-- Run in the Supabase SQL editor for project dmemzljerldzeiwqfxzp
+-- (TheJudgy's project, per Eli's decision 2026-11-13 — a new project
+-- needs a paid Supabase subscription). Do NOT run in any other project.
+-- Creates the CareMiles tables only; it must not touch any existing
+-- Judgy tables or functions.
 --
 -- Creates all MVP tables from the plan (~/workspace/mileage-app/plan.md),
 -- row-level security, and the append-only audit log.
@@ -17,82 +19,6 @@
 --   once the month's report is signed, approved, or paid.
 
 create extension if not exists pgcrypto;
-
--- ---------------------------------------------------------------- helpers
--- The caller's org, read from their profile row. SECURITY DEFINER so it
--- bypasses RLS (a policy calling it must not recurse into profiles RLS).
-create or replace function public.current_org_id()
-returns uuid
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select org_id from public.profiles where id = auth.uid();
-$$;
-
--- The caller's role in their org.
-create or replace function public.current_role()
-returns text
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select role from public.profiles where id = auth.uid();
-$$;
-
--- Is a given user's month still a draft? True when no report exists for the
--- month, or the report's status is 'draft'. Used by the trip lock policies.
-create or replace function public.month_is_draft(p_user_id uuid, p_month date)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select not exists (
-    select 1
-    from public.monthly_reports r
-    where r.user_id = p_user_id
-      and r.month = p_month
-      and r.status <> 'draft'
-  );
-$$;
-
--- Keep updated_at current.
-create or replace function public.set_updated_at()
-returns trigger
-language plpgsql
-as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$;
-
--- Enforce the report status flow: draft -> signed -> approved -> paid,
--- with unsign (signed -> draft) allowed only until approved. Signing locks
--- the month; once approved there is no way back to draft or signed.
-create or replace function public.enforce_report_status_flow()
-returns trigger
-language plpgsql
-as $$
-begin
-  if old.status = new.status then
-    return new;
-  end if;
-  if (old.status, new.status) in (
-    ('draft', 'signed'),
-    ('signed', 'draft'),
-    ('signed', 'approved'),
-    ('approved', 'paid')
-  ) then
-    return new;
-  end if;
-  raise exception 'invalid monthly report status transition: % -> %', old.status, new.status;
-end;
-$$;
 
 -- ------------------------------------------------------------------- orgs
 create table public.orgs (
@@ -221,6 +147,85 @@ create table public.audit_log (
 );
 create index audit_log_org_created_idx
   on public.audit_log (org_id, created_at);
+
+-- ---------------------------------------------------------------- helpers
+-- Defined AFTER the tables: the SQL-language helpers reference
+-- public.profiles / public.monthly_reports, and Postgres resolves those
+-- references at CREATE FUNCTION time, so the tables must exist first.
+-- The caller's org, read from their profile row. SECURITY DEFINER so it
+-- bypasses RLS (a policy calling it must not recurse into profiles RLS).
+create or replace function public.current_org_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select org_id from public.profiles where id = auth.uid();
+$$;
+
+-- The caller's role in their org.
+create or replace function public.current_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role from public.profiles where id = auth.uid();
+$$;
+
+-- Is a given user's month still a draft? True when no report exists for the
+-- month, or the report's status is 'draft'. Used by the trip lock policies.
+create or replace function public.month_is_draft(p_user_id uuid, p_month date)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select not exists (
+    select 1
+    from public.monthly_reports r
+    where r.user_id = p_user_id
+      and r.month = p_month
+      and r.status <> 'draft'
+  );
+$$;
+
+-- Keep updated_at current.
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+-- Enforce the report status flow: draft -> signed -> approved -> paid,
+-- with unsign (signed -> draft) allowed only until approved. Signing locks
+-- the month; once approved there is no way back to draft or signed.
+create or replace function public.enforce_report_status_flow()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.status = new.status then
+    return new;
+  end if;
+  if (old.status, new.status) in (
+    ('draft', 'signed'),
+    ('signed', 'draft'),
+    ('signed', 'approved'),
+    ('approved', 'paid')
+  ) then
+    return new;
+  end if;
+  raise exception 'invalid monthly report status transition: % -> %', old.status, new.status;
+end;
+$$;
 
 -- ------------------------------------------------------- updated_at hooks
 -- (orgs has no updated_at column, so no trigger there.)
