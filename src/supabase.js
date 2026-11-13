@@ -1,22 +1,21 @@
 // CareMiles — Supabase client.
 //
-// CONFIGURATION REQUIRED BEFORE STAGE 2
-// ---------------------------------------
-// No Supabase project has been chosen for CareMiles yet. When it is,
-// paste the project's URL and anon key below (Project Settings > API).
-// Do NOT paste the service-role key here — the browser must only ever
-// use the anon key. Row-level security enforces all access.
+// Project: dmemzljerldzeiwqfxzp (TheJudgy's project, per Eli's decision
+// 2026-11-13 — a new project needs a paid Supabase subscription).
+// The anon key below is the publishable client key (Project Settings >
+// API). Do NOT paste the service-role key here — the browser must only
+// ever use the anon key. Row-level security enforces all access.
 //
-//   SUPABASE_URL:      https://<your-project-ref>.supabase.co
-//   SUPABASE_ANON_KEY: <your anon / publishable key>
+//   SUPABASE_URL:      https://dmemzljerldzeiwqfxzp.supabase.co
+//   SUPABASE_ANON_KEY: <anon / publishable key>
 //
 // Until these are set, the app shell loads and explains what is missing;
 // sign-in and org creation stay disabled.
 
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-export const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-export const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+export const SUPABASE_URL = 'https://dmemzljerldzeiwqfxzp.supabase.co';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZW16bGplcmxkemVpd3FmeHpwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NDMxNzgsImV4cCI6MjA5NDIxOTE3OH0.u4FL1mk555dUesVNjF58pXwkQlvvQYQgR5JpcxRtB40';
 
 export function isConfigured() {
   return (
