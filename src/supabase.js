@@ -44,7 +44,7 @@ export async function currentProfile() {
   } = await supabase.auth.getUser();
   if (!user) return null;
   const { data, error } = await supabase
-    .from('profiles')
+    .from('caremiles_profiles')
     .select('id, org_id, email, full_name, role')
     .eq('id', user.id)
     .maybeSingle();

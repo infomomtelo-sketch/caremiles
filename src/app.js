@@ -60,7 +60,7 @@ function initTabs() {
 // First run: a signed-in owner with no profile/org creates the org, their
 // owner profile, and the two seeded IRS rates (2026-01-01 $0.725,
 // 2026-07-01 $0.76). RLS policies allow exactly this sequence:
-// orgs insert (any authenticated user) -> profiles insert (own row) ->
+// orgs insert (any authenticated user) -> caremiles_profiles insert (own row) ->
 // rate_table insert (owner role, once the profile exists).
 async function createOrg(orgName, fullName, user) {
   const { data: org, error: orgError } = await supabase
@@ -70,7 +70,7 @@ async function createOrg(orgName, fullName, user) {
     .single();
   if (orgError) throw orgError;
 
-  const { error: profileError } = await supabase.from('profiles').insert({
+  const { error: profileError } = await supabase.from('caremiles_profiles').insert({
     id: user.id,
     org_id: org.id,
     email: user.email,
